@@ -16,6 +16,7 @@ env:
   SQLX_FEATURES: "rustls,postgres"
 
 jobs:
+
   fmt:
     runs-on: ubuntu-latest
     name: stable / fmt
@@ -29,6 +30,7 @@ jobs:
           components: rustfmt
       - name: cargo fmt --check
         run: cargo fmt --check
+
   clippy:
     runs-on: ubuntu-latest
     name: ${{ matrix.toolchain }} / clippy
@@ -58,6 +60,11 @@ jobs:
         with:
           toolchain: ${{ matrix.toolchain }}
           components: clippy
+      - name: Rust Cache Action
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: sqlx-${{ env.SQLX_VERSION }}
+          shared-key: "cargo-clippy"
       - name: Install sqlx-cli
         run: |
           cargo install sqlx-cli \
@@ -72,6 +79,7 @@ jobs:
         uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+
   os-check:
     runs-on: ${{ matrix.os }}
     name: ${{ matrix.os }} / stable / test
@@ -91,12 +99,11 @@ jobs:
           password: password
           database: postgres
           port: 5432
-      # A GitHub Action that implements smart caching for rust/cargo projects with sensible defaults.
       - name: Rust Cache Action
         uses: Swatinem/rust-cache@v2
         with:
-          # An additional cache key that is added alongside the automatic `job`-based cache key and can be used to further differentiate jobs. default: empty
           key: sqlx-${{ env.SQLX_VERSION }}
+          shared-key: "cargo-test"
       - name: Install sqlx-cli
         run: |
           cargo install sqlx-cli --version=${{ env.SQLX_VERSION }} --features ${{ env.SQLX_FEATURES }} --no-default-features
@@ -109,6 +116,7 @@ jobs:
         run: cargo generate-lockfile
       - name: cargo test
         run: cargo test --locked --all-features --all-targets
+
   coverage:
     runs-on: ubuntu-latest
     name: ubuntu / stable / coverage
@@ -128,6 +136,15 @@ jobs:
           submodules: true
       - name: Install stable
         uses: dtolnay/rust-toolchain@stable
+      - name: Install tarpaulin
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-tarpaulin
+      - name: Rust Cache Action
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: sqlx-${{ env.SQLX_VERSION }}
+          shared-key: "cargo-test"
       - name: Install sqlx-cli
         run: |
           cargo install sqlx-cli \
@@ -138,10 +155,6 @@ jobs:
         run: |
           sqlx database create
           sqlx migrate run
-      - name: Install tarpaulin
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-tarpaulin
       - name: cargo generate-lockfile
         if: hashFiles('Cargo.lock') == ''
         run: cargo generate-lockfile
@@ -153,6 +166,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           file: cobertura.xml
           compare-ref: origin/master
+
   typos:
     name: Spell Check
     runs-on: ubuntu-latest

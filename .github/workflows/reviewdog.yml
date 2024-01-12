@@ -35,6 +35,11 @@ jobs:
         with:
           toolchain: ${{ matrix.toolchain }}
           components: clippy
+      - name: Rust Cache Action
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: sqlx-${{ env.SQLX_VERSION }}
+          shared-key: "cargo-clippy"
       - name: Install sqlx-cli
         run: |
           cargo install sqlx-cli \
