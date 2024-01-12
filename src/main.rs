@@ -1,5 +1,5 @@
+use messenger_dog::run;
 use std::net::TcpListener;
-use MessengerDog::run;
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {

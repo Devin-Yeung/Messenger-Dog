@@ -1,5 +1,5 @@
 [package]
-name = "MessengerDog"
+name = "messenger-dog"
 version = "0.1.0"
 edition = "2021"
 
@@ -9,6 +9,7 @@ edition = "2021"
 actix-web = "4"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 reqwest = "0.11"
+serde = { version = "1.0.195", features = ["derive"] }
 
 [lib]
 path = "src/lib.rs"
@@ -18,4 +19,4 @@ path = "src/lib.rs"
 # If you want to manage multiple libraries in the same repository
 [[bin]]
 path = "src/main.rs"
-name = "MessengerDog"
+name = "messenger-dog"
