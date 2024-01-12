@@ -4,12 +4,26 @@ permissions:
   contents: read
   pull-requests: write # see https://github.com/reviewdog/action-eslint/issues/147
 on: [ pull_request ] # Support only pull_request event.
+env:
+  CARGO_TERM_COLOR: always
+  SQLX_VERSION: 0.7.3
+  SQLX_FEATURES: "rustls,postgres"
 jobs:
   cargo-clippy-suggest:
     strategy:
       fail-fast: false
       matrix:
         toolchain: [ stable ]
+    services:
+      # set up the database
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
     name: suggester / cargo-clippy
     runs-on: ubuntu-latest
     steps:
@@ -21,6 +35,16 @@ jobs:
         with:
           toolchain: ${{ matrix.toolchain }}
           components: clippy
+      - name: Install sqlx-cli
+        run: |
+          cargo install sqlx-cli \
+            --version=${{ env.SQLX_VERSION }} \
+            --features ${{ env.SQLX_FEATURES }} \
+            --no-default-features
+      - name: Migrate the database
+        run: |
+          sqlx database create
+          sqlx migrate run
       - run: cargo clippy --fix
       - name: Suggest in PR comments
         uses: reviewdog/action-suggester@v1
