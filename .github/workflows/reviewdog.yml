@@ -1,0 +1,28 @@
+name: ReviewDog-Suggester
+permissions:
+  checks: write
+  contents: read
+  pull-requests: write # see https://github.com/reviewdog/action-eslint/issues/147
+on: [ pull_request ] # Support only pull_request event.
+jobs:
+  cargo-clippy-suggest:
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: [ stable ]
+    name: suggester / cargo-clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install ${{ matrix.toolchain }}
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          components: clippy
+      - run: cargo clippy --fix
+      - name: Suggest in PR comments
+        uses: reviewdog/action-suggester@v1
+        with:
+          tool_name: clippy
