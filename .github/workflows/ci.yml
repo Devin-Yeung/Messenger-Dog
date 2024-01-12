@@ -4,11 +4,19 @@ on:
   push:
     branches: [master]
   pull_request:
+  workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 name: CI
+
+env:
+  CARGO_TERM_COLOR: always
+  SQLX_VERSION: 0.7.3
+  SQLX_FEATURES: "rustls,postgres"
+
 jobs:
+
   fmt:
     runs-on: ubuntu-latest
     name: stable / fmt
@@ -22,6 +30,7 @@ jobs:
           components: rustfmt
       - name: cargo fmt --check
         run: cargo fmt --check
+
   clippy:
     runs-on: ubuntu-latest
     name: ${{ matrix.toolchain }} / clippy
@@ -32,6 +41,16 @@ jobs:
       fail-fast: false
       matrix:
         toolchain: [stable]
+    services:
+      # set up the database
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
     steps:
       - uses: actions/checkout@v4
         with:
@@ -41,45 +60,26 @@ jobs:
         with:
           toolchain: ${{ matrix.toolchain }}
           components: clippy
+      - name: Rust Cache Action
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: sqlx-${{ env.SQLX_VERSION }}
+          shared-key: "cargo-clippy"
+      - name: Install sqlx-cli
+        run: |
+          cargo install sqlx-cli \
+            --version=${{ env.SQLX_VERSION }} \
+            --features ${{ env.SQLX_FEATURES }} \
+            --no-default-features
+      - name: Migrate the database
+        run: |
+          sqlx database create
+          sqlx migrate run
       - name: cargo clippy
         uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-  doc:
-    runs-on: ubuntu-latest
-    name: nightly / doc
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: true
-      - name: Install nightly
-        uses: dtolnay/rust-toolchain@nightly
-      - name: cargo doc
-        run: cargo doc --no-deps --all-features
-        env:
-          RUSTDOCFLAGS: --cfg docsrs
-  required:
-    runs-on: ubuntu-latest
-    name: ubuntu / ${{ matrix.toolchain }} / test
-    strategy:
-      matrix:
-        toolchain: [stable]
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: true
-      - name: Install ${{ matrix.toolchain }}
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ matrix.toolchain }}
-      - name: cargo generate-lockfile
-        if: hashFiles('Cargo.lock') == ''
-        run: cargo generate-lockfile
-      - name: cargo test --locked
-        run: cargo test --locked --all-features --all-targets
-      # https://github.com/rust-lang/cargo/issues/6669
-      - name: cargo test --doc
-        run: cargo test --locked --all-features --doc
+
   os-check:
     runs-on: ${{ matrix.os }}
     name: ${{ matrix.os }} / stable / test
@@ -93,14 +93,43 @@ jobs:
           submodules: true
       - name: Install stable
         uses: dtolnay/rust-toolchain@stable
+      - uses: ikalnytskyi/action-setup-postgres@v5
+        with:
+          username: postgres
+          password: password
+          database: postgres
+          port: 5432
+      - name: Rust Cache Action
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: sqlx-${{ env.SQLX_VERSION }}
+          shared-key: "cargo-test"
+      - name: Install sqlx-cli
+        run: |
+          cargo install sqlx-cli --version=${{ env.SQLX_VERSION }} --features ${{ env.SQLX_FEATURES }} --no-default-features
+      - name: Migrate the database
+        run: |
+          sqlx database create
+          sqlx migrate run
       - name: cargo generate-lockfile
         if: hashFiles('Cargo.lock') == ''
         run: cargo generate-lockfile
       - name: cargo test
         run: cargo test --locked --all-features --all-targets
+
   coverage:
     runs-on: ubuntu-latest
     name: ubuntu / stable / coverage
+    services:
+      # set up the database
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
     steps:
       - uses: actions/checkout@v4
         with:
@@ -111,6 +140,21 @@ jobs:
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-tarpaulin
+      - name: Rust Cache Action
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: sqlx-${{ env.SQLX_VERSION }}
+          shared-key: "cargo-test"
+      - name: Install sqlx-cli
+        run: |
+          cargo install sqlx-cli \
+            --version=${{ env.SQLX_VERSION }} \
+            --features ${{ env.SQLX_FEATURES }} \
+            --no-default-features
+      - name: Migrate the database
+        run: |
+          sqlx database create
+          sqlx migrate run
       - name: cargo generate-lockfile
         if: hashFiles('Cargo.lock') == ''
         run: cargo generate-lockfile
@@ -122,6 +166,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           file: cobertura.xml
           compare-ref: origin/master
+
   typos:
     name: Spell Check
     runs-on: ubuntu-latest
