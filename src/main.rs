@@ -1,4 +1,4 @@
-use messenger_dog::run;
+use messenger_dog::startup::run;
 use std::net::TcpListener;
 
 #[tokio::main]

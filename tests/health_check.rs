@@ -7,7 +7,7 @@ fn spawn_app() -> String {
         TcpListener::bind("127.0.0.1:0").expect("Failed to bind a random port");
     // retrieve the port assigned to us by the OS
     let port = listener.local_addr().unwrap().port();
-    let server = messenger_dog::run(listener).expect("Failed to bind address");
+    let server = messenger_dog::startup::run(listener).expect("Failed to bind address");
     let _ = tokio::spawn(server);
     format!("http://127.0.0.1:{}", port)
 }
