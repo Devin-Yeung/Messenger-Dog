@@ -10,6 +10,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 name: Rolling
+env:
+  CARGO_TERM_COLOR: always
+  SQLX_VERSION: 0.7.3
+  SQLX_FEATURES: "rustls,postgres"
+
 jobs:
   link-check:
     runs-on: ubuntu-latest
@@ -27,12 +32,32 @@ jobs:
   nightly:
     runs-on: ubuntu-latest
     name: ubuntu / nightly
+    services:
+      # set up the database
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: true
       - name: Install nightly
         uses: dtolnay/rust-toolchain@nightly
+      - name: Install sqlx-cli
+        run: |
+          cargo install sqlx-cli \
+            --version=${{ env.SQLX_VERSION }} \
+            --features ${{ env.SQLX_FEATURES }} \
+            --no-default-features
+      - name: Migrate the database
+        run: |
+          sqlx database create
+          sqlx migrate run
       - name: cargo generate-lockfile
         if: hashFiles('Cargo.lock') == ''
         run: cargo generate-lockfile
@@ -40,6 +65,16 @@ jobs:
         run: cargo test --locked --all-features --all-targets
   update:
     runs-on: ubuntu-latest
+    services:
+      # set up the database
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
     name: ubuntu / beta / updated
     # There's no point running this if no Cargo.lock was checked in the
     # first place, since we'd just redo what happened in the regular test job.
@@ -52,6 +87,16 @@ jobs:
       - name: Install beta
         if: hashFiles('Cargo.lock') != ''
         uses: dtolnay/rust-toolchain@beta
+      - name: Install sqlx-cli
+        run: |
+          cargo install sqlx-cli \
+            --version=${{ env.SQLX_VERSION }} \
+            --features ${{ env.SQLX_FEATURES }} \
+            --no-default-features
+      - name: Migrate the database
+        run: |
+          sqlx database create
+          sqlx migrate run
       - name: cargo update
         if: hashFiles('Cargo.lock') != ''
         run: cargo update
