@@ -89,32 +89,22 @@ jobs:
   os-check:
     runs-on: ${{ matrix.os }}
     name: ${{ matrix.os }} / stable / test
-    services:
-      # Label used to access the service container
-      postgres:
-        # Docker Hub image
-        image: postgres:14
-        # Environment variables scoped only for the `postgres` element
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: password
-          POSTGRES_DB: postgres
-        # When you map ports using the ports keyword,
-        # GitHub uses the --publish command to
-        # publish the container’s ports to the Docker host
-        # Opens tcp port 5432 on the host and service container
-        ports:
-          - 5432:5432
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: true
       - name: Install stable
         uses: dtolnay/rust-toolchain@stable
+      - uses: ikalnytskyi/action-setup-postgres@v5
+        with:
+          username: postgres
+          password: password
+          database: postgres
+          port: 5432
       - name: Install sqlx-cli
         run: |
           cargo install sqlx-cli \
