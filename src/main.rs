@@ -1,8 +1,11 @@
+use messenger_dog::configuration::get_configuration;
 use messenger_dog::startup::run;
 use std::net::TcpListener;
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
-    let listener: TcpListener = TcpListener::bind("127.0.0.1:0")?;
+    let configuration = get_configuration().expect("Failed to read configuration.");
+    let address = format!("127.0.0.1:{}", configuration.application_port);
+    let listener: TcpListener = TcpListener::bind(address)?;
     run(listener)?.await
 }
