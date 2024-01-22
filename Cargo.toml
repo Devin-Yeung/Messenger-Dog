@@ -13,6 +13,10 @@ serde = { version = "1.0.195", features = ["derive"] }
 sqlx = { version = "0.7", default-features = false, features = ["runtime-tokio-rustls", "macros", "postgres", "uuid", "chrono", "migrate"] }
 config = { version = "0.13.4", features = [] }
 uuid = { version = "1.6.1", features = ["v4"] }
+tracing = { version = "0.1.40", features = ["log"] }
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+tracing-bunyan-formatter = "0.3.9"
+tracing-log = "0.2.0"
 
 [lib]
 path = "src/lib.rs"
